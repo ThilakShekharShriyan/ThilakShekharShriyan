@@ -1,89 +1,63 @@
 # Thilak Shekhar Shriyan
 
-I build systems software: memory allocators, log engines, vector search, and the control paths around training and inference.
+I write Rust for the path that has to stay correct while it is fast. Allocators, logs, lock-free structures, and the tail of a latency distribution.
 
-I am in the MS Computer Science program at San Jose State University (2025–2027). I studied computer science at PES University (2019–2023), worked as a software engineer at Couchbase, and in summer 2026 worked at AWS on session placement for a distributed compute fleet.
+```rust
+/// What the recent crates are actually about.
+pub enum Work {
+    /// Slab, thread cache, shared freelist. A miss refills 32 blocks.
+    Alloc,
+    /// Bounded queue and an epoch collector. The hit path takes no mutex.
+    Publish,
+    /// Page cache and a write-ahead log. Group the commit, then sync.
+    Durability,
+    /// Evict for the p99, not the mean.
+    Tail,
+}
 
-San Jose, CA · [LinkedIn](https://www.linkedin.com/in/thilakshekharshriyan) · [thilakshekharshriyan@gmail.com](mailto:thilakshekharshriyan@gmail.com) · [Portfolio](https://portfolio-website-thilakshekharshriyan.vercel.app/)
+impl Work {
+    pub const fn open() -> &'static [Self] {
+        &[Self::Alloc, Self::Publish, Self::Durability, Self::Tail]
+    }
+}
+```
 
-## Interests
+Safe Rust owns the algorithm. `unsafe` is the slab backing store, the queue slot, the retired map node, and a Metal timestamp. Each of those sites says which invariant makes it sound.
 
-Memory and concurrency, databases, distributed systems, and machine-learning infrastructure. Recent projects are mostly Rust and Go. Python is what I use for training, federated learning, and agents.
+```mermaid
+flowchart LR
+  T[alloc / free] --> Hit{magazine hit?}
+  Hit -->|yes| Local[thread-local stack]
+  Hit -->|miss, 32 blocks| Shared[one shared freelist]
+  Shared --> Slab[slab, 16 to 2048 bytes]
+```
 
-## Experience
+## crates
 
-**Software Development Engineer, Amazon Web Services** · May 2026 – Aug 2026
+**[memallocator](https://github.com/ThilakShekharShriyan/memallocator)**
+A slab allocator with a thread-local magazine, a lock-free queue, two maps, an epoch collector, a page cache with a write-ahead log, and a Metal suballocator. Eight threads allocate and free 64-byte blocks, then the program prints where the time went.
 
-Designed a Rust session-placement engine for a distributed compute fleet: bin-packing, spread, and affinity-aware scheduling. The concurrent path uses Tokio and Crossbeam. Telemetry ingestion is zero-copy, and placement state is stored in Aurora DSQL.
+**[BlitzLog](https://github.com/ThilakShekharShriyan/BlitzLog)**
+A compressed log engine. Delta and varint encoding, SIMD scans, a write-ahead log, and Raft when the log has to live on more than one machine.
 
-**Software Engineer, Couchbase** · Jan 2023 – Aug 2025
+**[p99-edge-cache](https://github.com/ThilakShekharShriyan/p99-edge-cache)**
+A chunk-cache simulator. LRU and LFU against a policy that evicts from the tail. The longer sweep is [CCNFinalAssignment](https://github.com/ThilakShekharShriyan/CCNFinalAssignment).
 
-Ran customer-facing services on Linux, AWS, Docker, and EKS. Built log-ingestion pipelines, wired Prometheus, Grafana, and Datadog, and raised Go backend throughput with tighter concurrency and buffer use. Worked on distributed vector retrieval with FAISS, Elasticsearch, and SQL.
+## same questions, other languages
 
-**Earlier**
+**[PlayFlow](https://github.com/ThilakShekharShriyan/PlayFlow)** is a Go payment ledger: double-entry, exactly-once, from authorization through refund.
 
-Summer internship at Accenture on collecting and delivering data from more than one source. At PESU Venture Labs I built Flutter pages for Teaminup on MongoDB and GraphQL, and wrote Python scrapers whose output fed startup models.
+**[EmbedBase](https://github.com/ThilakShekharShriyan/EmbedBase)** is a Go vector index you can embed: HNSW, BM25, and a write-ahead log.
 
-## Projects
+<details>
+<summary>everything else</summary>
 
-### Systems
+Federated learning and agents: [FlowerHackathon](https://github.com/ThilakShekharShriyan/FlowerHackathon), [flower-grid-observability-demo](https://github.com/ThilakShekharShriyan/flower-grid-observability-demo), [akash-autopilot](https://github.com/ThilakShekharShriyan/akash-autopilot), [GeoScale](https://github.com/ThilakShekharShriyan/GeoScale).
 
-| Project | What it is |
-| --- | --- |
-| [memallocator](https://github.com/ThilakShekharShriyan/memallocator) | Rust slab allocator with a thread cache, lock-free queue, epoch collector, write-ahead log, and a Metal GPU suballocator. |
-| [BlitzLog](https://github.com/ThilakShekharShriyan/BlitzLog) | Compressed log store in Rust: delta and varint encoding, SIMD queries, a write-ahead log, and Raft replication. |
-| [PlayFlow](https://github.com/ThilakShekharShriyan/PlayFlow) | Payment orchestration in Go with a double-entry ledger and exactly-once handling from authorization through refund. |
-| [EmbedBase](https://github.com/ThilakShekharShriyan/EmbedBase) | Embeddable hybrid vector store in Go: HNSW and IVF indexes, BM25, and a write-ahead log. |
-| [p99-edge-cache](https://github.com/ThilakShekharShriyan/p99-edge-cache) | Edge cache simulator comparing LRU, LFU, and a p99-aware eviction policy. Coursework for CS 258 at SJSU. The fuller sweep is in [CCNFinalAssignment](https://github.com/ThilakShekharShriyan/CCNFinalAssignment). |
-| [TILUDistributedSystems](https://github.com/ThilakShekharShriyan/TILUDistributedSystems) | Reading notes on how companies split their distributed systems, taken from public write-ups. |
-| [MiniMicroServices](https://github.com/ThilakShekharShriyan/MiniMicroServices) | Small Go implementations of distributed-systems pieces, starting with consistent hashing. |
+Apps: [LecRef](https://github.com/ThilakShekharShriyan/LecRef), [link-road](https://github.com/ThilakShekharShriyan/link-road), [AlmaProject](https://github.com/ThilakShekharShriyan/AlmaProject), [GameScroll](https://github.com/ThilakShekharShriyan/GameScroll).
 
-### Machine learning and agents
+Notes and older builds: [TILUDistributedSystems](https://github.com/ThilakShekharShriyan/TILUDistributedSystems), [MiniMicroServices](https://github.com/ThilakShekharShriyan/MiniMicroServices), [GoLLMServe](https://github.com/ThilakShekharShriyan/GoLLMServe), [Neetcode](https://github.com/ThilakShekharShriyan/Neetcode).
 
-| Project | What it is |
-| --- | --- |
-| [GeoScale](https://github.com/ThilakShekharShriyan/GeoScale) | Training pipeline for geospatial vision models: Ray ingestion, geohash shards, ViT training, and FAISS retrieval. |
-| [FlowerHackathon](https://github.com/ThilakShekharShriyan/FlowerHackathon) | Terminal agent that runs Flower federated-learning experiments, logs them to MongoDB, and proposes the next config. |
-| [flower-grid-observability-demo](https://github.com/ThilakShekharShriyan/flower-grid-observability-demo) | Operator desk and runbooks for a Flower agent grid. |
-| [akash-autopilot](https://github.com/ThilakShekharShriyan/akash-autopilot) | Agent that watches Akash deployments and scales or redeploys them inside policy limits. |
-| [LecRef](https://github.com/ThilakShekharShriyan/LecRef) | Lecture companion that transcribes speech, defines terms as they come up, and writes cited research notes. [Live demo](https://v0-lec-ref.vercel.app). |
-| [link-road](https://github.com/ThilakShekharShriyan/link-road) | Road-scene demo: in-browser YOLO, a simulated multi-lane road, and a voice and video agent for hazards such as potholes and debris. |
-| [GoLLMServe](https://github.com/ThilakShekharShriyan/GoLLMServe) | Notes toward an LLM serving engine in Go with a distributed KV cache. |
-| [Cataract-Detection---Capstone](https://github.com/ThilakShekharShriyan/Cataract-Detection---Capstone) | Flask app for cataract detection. |
-| [ImageCaptionGenerator](https://github.com/ThilakShekharShriyan/ImageCaptionGenerator) | Image captions with a VGG19 CNN: images are vectorized and matched to caption text. |
-| [ImageClassificationWebsite](https://github.com/ThilakShekharShriyan/ImageClassificationWebsite) | Website for image classification. |
-| [Fedrated-Learning-Client-Server-Architecture-](https://github.com/ThilakShekharShriyan/Fedrated-Learning-Client-Server-Architecture-) | Early client-server federated learning setup. |
-| [Leads-Scoring-Data-Analytics](https://github.com/ThilakShekharShriyan/Leads-Scoring-Data-Analytics) | Lead-scoring analysis in notebooks. |
+</details>
 
-### Applications
-
-| Project | What it is |
-| --- | --- |
-| [AlmaProject](https://github.com/ThilakShekharShriyan/AlmaProject) | Lead intake for an attorney: public application, resume upload, email, and a signed-in review queue. [Live site](https://leads.thilakshekharshriyan.com). |
-| [GameScroll](https://github.com/ThilakShekharShriyan/GameScroll) | Feed for scrolling through and creating small JavaScript games with Gemini. |
-| [portfolioWebsite](https://github.com/ThilakShekharShriyan/portfolioWebsite) | Next.js portfolio backed by GraphCMS. [Site](https://portfolio-website-thilakshekharshriyan.vercel.app/). |
-| [Bloggin-App](https://github.com/ThilakShekharShriyan/Bloggin-App) | Blogging app in Next.js. |
-| [cf_ai_BlogMaker](https://github.com/ThilakShekharShriyan/cf_ai_BlogMaker) | Helper for updating blog posts. |
-| [MERNstackmoviesearch](https://github.com/ThilakShekharShriyan/MERNstackmoviesearch) | Movie search with the MERN stack. |
-| [Sorting_visualiser](https://github.com/ThilakShekharShriyan/Sorting_visualiser) | React sorting visualizer. |
-| [AWS-CICD-pipeline](https://github.com/ThilakShekharShriyan/AWS-CICD-pipeline) | CI/CD pipeline on AWS. |
-
-### Practice
-
-- [Neetcode](https://github.com/ThilakShekharShriyan/Neetcode) — NeetCode problems in Python.
-- [Go-Projects](https://github.com/ThilakShekharShriyan/Go-Projects) — Go exercises.
-- [Blockchain](https://github.com/ThilakShekharShriyan/Blockchain) and [Solidity](https://github.com/ThilakShekharShriyan/Solidity) — blockchain and Solidity notes.
-- [TextEncryption](https://github.com/ThilakShekharShriyan/TextEncryption) and [ImageEncryptionDecryption](https://github.com/ThilakShekharShriyan/ImageEncryptionDecryption) — encryption exercises.
-- [swarm-learning](https://github.com/ThilakShekharShriyan/swarm-learning) — fork of a decentralized, privacy-preserving machine-learning library, from when I was learning that setup.
-
-## Stack
-
-**Languages.** Rust, C/C++, Go, Python, JavaScript/TypeScript, SQL, Shell.
-
-**Data and search.** PostgreSQL, MySQL, MongoDB, Couchbase, Redis, Elasticsearch, FAISS.
-
-**ML.** PyTorch, TensorFlow, scikit-learn, federated learning, RAG, LangChain, LlamaIndex.
-
-**Infrastructure.** AWS, Docker, Kubernetes, Linux, Prometheus, Grafana, Datadog.
-
-**Apps.** React, Next.js, REST.
+San Jose · [thilakshekharshriyan@gmail.com](mailto:thilakshekharshriyan@gmail.com) · [LinkedIn](https://www.linkedin.com/in/thilakshekharshriyan)
