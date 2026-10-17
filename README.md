@@ -2,38 +2,22 @@
 
 # Thilak Shekhar Shriyan
 
-*Rust for the path that has to stay correct while it is fast.*
+*Systems. Memory, durability, and the tail of the latency distribution.*
 
-[![Rust](https://img.shields.io/badge/Rust-allocators%20%C2%B7%20logs%20%C2%B7%20tail%20latency-111111?style=flat-square&logo=rust&logoColor=white)](https://github.com/ThilakShekharShriyan/memallocator)
-
-[Crates](#crates) · [Run](#run) · [Elsewhere](#elsewhere)
+[Systems](#systems) · [Run](#run) · [Elsewhere](#elsewhere)
 
 </div>
 
-Allocators, logs, lock-free structures, and the tail of a latency distribution. Safe Rust owns the algorithm. `unsafe` stays on the slab backing store, the queue slot, the retired map node, and a Metal timestamp. Each of those sites says which invariant makes it sound.
+Allocation, the log that has to survive a crash, and what to keep when the slow requests are the ones that matter.
+
+## Systems
+
+- **Memory.** A thread cache in front of one shared freelist, so the fast path does not take a lock. [memallocator](https://github.com/ThilakShekharShriyan/memallocator) is the Rust version: a slab, a lock-free queue, an epoch collector, and a Metal suballocator.
+- **Durability.** Write the log before the page cache. Replicate it when it has to exist on more than one machine. Record a payment once. [BlitzLog](https://github.com/ThilakShekharShriyan/BlitzLog) is the compressed log with Raft. [PlayFlow](https://github.com/ThilakShekharShriyan/PlayFlow) is the Go ledger, double-entry, exactly-once.
+- **The tail.** Evict for the p99, not the mean, and search with a vector score and a keyword score in the same store. [p99-edge-cache](https://github.com/ThilakShekharShriyan/p99-edge-cache) is the cache simulator. [EmbedBase](https://github.com/ThilakShekharShriyan/EmbedBase) is the Go index, HNSW plus BM25.
 
 > [!TIP]
-> Release is the number that matters. Debug builds keep double-free checks and do not inline the same way.
-
-## Features
-
-- **Thread-cached allocation.** A hit stays on a thread-local stack. A miss refills 32 blocks from one shared freelist. The slab covers 16 to 2048 bytes.
-- **Durable logs.** Delta and varint encoding, SIMD scans, a write-ahead log, and Raft when the log has to live on more than one machine.
-- **Tail latency.** Evict for the p99, not the mean.
-
-## Crates
-
-### [memallocator](https://github.com/ThilakShekharShriyan/memallocator)
-
-A slab allocator with a thread-local magazine, a lock-free queue, two maps, an epoch collector, a page cache with a write-ahead log, and a Metal suballocator. Eight threads allocate and free 64-byte blocks, then the program prints where the time went.
-
-### [BlitzLog](https://github.com/ThilakShekharShriyan/BlitzLog)
-
-A compressed log engine. Delta and varint encoding, SIMD scans, a write-ahead log, and Raft.
-
-### [p99-edge-cache](https://github.com/ThilakShekharShriyan/p99-edge-cache)
-
-A chunk-cache simulator. LRU and LFU against a policy that evicts from the tail. The longer sweep is [CCNFinalAssignment](https://github.com/ThilakShekharShriyan/CCNFinalAssignment).
+> [memallocator](https://github.com/ThilakShekharShriyan/memallocator) prints where the time went. Release is the number that matters.
 
 ## Run
 
@@ -44,11 +28,9 @@ cargo test
 cargo run --release
 ```
 
-`cargo run --release -- gaps` prints the gaps between those choices.
+`cargo run --release -- gaps` prints the gaps between those choices. The longer cache sweep is [CCNFinalAssignment](https://github.com/ThilakShekharShriyan/CCNFinalAssignment).
 
 ## Elsewhere
-
-Same questions in Go: [PlayFlow](https://github.com/ThilakShekharShriyan/PlayFlow) is a double-entry payment ledger with exactly-once handling, and [EmbedBase](https://github.com/ThilakShekharShriyan/EmbedBase) is an embeddable vector index with HNSW, BM25, and a write-ahead log.
 
 <details>
 <summary>Other work</summary>
